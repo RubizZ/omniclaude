@@ -104,14 +104,14 @@ export class ClaudePatcher {
       let modeNote = '';
       if (config.serverMode !== 'service') {
         await ServerManager.setServerMode('service');
-        modeNote = '\n⚡ Se ha activado el modo Always-On para que OmniRoute inicie con el sistema.';
+        modeNote = '\n⚡ Always-On mode enabled so OmniRoute starts with the system.';
       }
       await ServerManager.ensureRunning(port);
 
       saveConfig({ patched: true, patchMode: 'settings', lastModel: model });
       return {
         success: true,
-        message: `Claude Code configurado en ~/.claude/settings.json (Modelo: ${model}).${modeNote}\n🛡️ Se ha añadido un hook oficial (SessionStart) para garantizar que el servidor siempre esté encendido al abrir Claude.`,
+        message: `Claude Code configured in ~/.claude/settings.json (Model: ${model}).${modeNote}\n🛡️ Official hook (SessionStart) added to ensure the server is always running when Claude opens.`,
       };
     }
 
@@ -164,12 +164,12 @@ if %errorlevel% equ 0 (
       saveConfig({ patched: true, patchMode: 'wrapper', lastModel: model });
 
       const modifiedNote = pathResult.modifiedFiles.length > 0
-        ? `\n✅ Añadido automáticamente al PATH en: ${pathResult.modifiedFiles.join(', ')}`
-        : '\nℹ️ El directorio ya estaba registrado en tu PATH.';
+        ? `\n✅ Automatically added to PATH in: ${pathResult.modifiedFiles.join(', ')}`
+        : '\nℹ️ Directory was already in your PATH.';
 
       return {
         success: true,
-        message: `Universal shim creado en ${SHIM_DIR}.${modifiedNote}\n💡 Si ejecutas 'claude' en una ventana ya abierta, puede requerir abrir una nueva terminal para recargar el PATH.`,
+        message: `Universal shim created at ${SHIM_DIR}.${modifiedNote}\n💡 Running 'claude' in an existing terminal may require opening a new terminal window to reload the PATH.`,
       };
     }
 

@@ -40,7 +40,7 @@ program
 program
   .command('doctor')
   .description('Check and install required dependencies (Node.js, Claude Code, OmniRoute)')
-  .option('--fix', 'Automatically install missing dependencies without asking')
+  .option('--fix', 'Automatically install missing dependencies without prompting')
   .action(async (opts) => {
     const { nodeOk, nodeVer, deps } = DependencyManager.checkAll();
     console.log(`Node.js: ${nodeOk ? `OK (${nodeVer})` : `REQUIRED >= 18 (${nodeVer})`}`);
@@ -90,8 +90,7 @@ serverCmd
   .command('restart')
   .description('Restart OmniRoute daemon')
   .action(async () => {
-    await ServerManager.stopServer();
-    const res = await ServerManager.startServer();
+    const res = await ServerManager.restart();
     console.log(res.message);
   });
 
@@ -129,6 +128,60 @@ serverCmd
       process.exit(1);
     }
     const res = await ServerManager.setServerMode(mode as ServerMode);
+    console.log(res.message);
+  });
+
+// Providers management
+const providersCmd = program.command('providers').description('Manage configured provider logins and free providers');
+
+providersCmd
+  .command('list')
+  .description('List configured provider logins and free providers status')
+  .action(async () => {
+    const conns = await OmniRouteProvider.listConfiguredConnections();
+    const freeEnabled = await OmniRouteProvider.isFreeProvidersEnabled();
+
+    console.log(`Free Providers: ${freeEnabled ? 'ENABLED (Visible)' : 'DISABLED (Hidden)'}\n`);
+
+    if (conns.length === 0) {
+      console.log('No configured provider logins found in OmniRoute.');
+      console.log('Use "omniclaude open" to add logins in the web dashboard.');
+      return;
+    }
+
+    console.log('Configured Provider Connections:');
+    for (const c of conns) {
+      const status = c.isActive ? 'ACTIVE' : 'INACTIVE';
+      console.log(`  - [${status}] ${c.provider} (${c.name}) [ID: ${c.id}]`);
+    }
+  });
+
+providersCmd
+  .command('toggle <idOrName>')
+  .description('Toggle or set a provider connection active/inactive')
+  .option('--enable', 'Explicitly enable provider')
+  .option('--disable', 'Explicitly disable provider')
+  .action(async (idOrName, opts) => {
+    let targetActive: boolean | undefined = undefined;
+    if (opts.enable) targetActive = true;
+    if (opts.disable) targetActive = false;
+
+    const res = await OmniRouteProvider.toggleConnection(idOrName, targetActive);
+    console.log(res.message);
+    if (!res.success) process.exit(1);
+  });
+
+providersCmd
+  .command('free <action>')
+  .description('Enable or disable all free/no-auth providers (enable | disable)')
+  .action(async (action: string) => {
+    const act = action.toLowerCase();
+    if (act !== 'enable' && act !== 'disable') {
+      console.error('Invalid action. Use "enable" or "disable".');
+      process.exit(1);
+    }
+    const enable = act === 'enable';
+    const res = await OmniRouteProvider.setFreeProvidersEnabled(enable);
     console.log(res.message);
   });
 

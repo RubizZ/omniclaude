@@ -50,12 +50,12 @@ export class PathManager {
             stdio: 'ignore',
             windowsHide: true,
           });
-          modifiedFiles.push('Registro de Windows (HKCU\\Environment\\Path)');
+          modifiedFiles.push('Windows Registry (HKCU\\Environment\\Path)');
         }
       } catch (err: any) {
         return {
           success: false,
-          message: `No se pudo añadir al PATH en el Registro: ${err.message}`,
+          message: `Failed to add to PATH in Windows Registry: ${err.message}`,
           modifiedFiles,
         };
       }
@@ -77,7 +77,7 @@ export class PathManager {
 
     return {
       success: true,
-      message: `Añadido "${SHIM_DIR}" al PATH permanentemente.`,
+      message: `Added "${SHIM_DIR}" to permanent PATH.`,
       modifiedFiles,
     };
   }
@@ -111,7 +111,7 @@ export class PathManager {
               stdio: 'ignore',
               windowsHide: true,
             });
-            modifiedFiles.push('Registro de Windows (HKCU\\Environment\\Path)');
+            modifiedFiles.push('Windows Registry (HKCU\\Environment\\Path)');
           }
         }
       } catch {}

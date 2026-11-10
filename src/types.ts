@@ -37,3 +37,12 @@ export interface ProviderGroup {
   type: 'paid' | 'free' | 'other' | 'combo';
   models: string[];
 }
+
+export interface ProviderConnection {
+  id: string;
+  provider: string;
+  name: string;
+  authType: string;
+  isActive: boolean;
+  testStatus?: string;
+}

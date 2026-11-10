@@ -1,116 +1,151 @@
 # 🌌 OmniClaude
 
-> **CLI & TUI Manager multiplataforma para Claude Code y OmniRoute.**  
-> Administra el ciclo de vida del servidor OmniRoute como un Singleton (con Reference Counting de sesiones o modo servicio Always-On), permite seleccionar modelos de proveedores de pago, gratuitos y combos en una interfaz TUI interactiva y ofrece parcheo universal de Claude Code.
+> **Cross-platform CLI & Interactive TUI Manager for Claude Code + OmniRoute.**  
+> Manages the OmniRoute server lifecycle as a Singleton (with session reference counting or Always-On service mode), features a rich model catalog selector (Paid, Free, and Combos), includes a built-in Provider & Model Manager to enable/disable logins and toggle free models, and provides zero-friction global patching for Claude Code.
 
 ---
 
-## 🚀 Instalación Global
+## 🚀 Installation
 
-Puedes instalarlo o vincularlo globalmente con npm:
+Install globally via npm:
 
 ```bash
-# Desde el directorio del proyecto
-npm run build
-npm install -g .
-
-# O mediante npm link para desarrollo activo
-npm link
+npm install -g omniclaude
 ```
 
-Una vez instalado, el comando `omniclaude` estará disponible globalmente en tu terminal (Linux, WSL, macOS y Windows PowerShell / CMD).
+Or run directly without installation:
+
+```bash
+npx omniclaude
+```
+
+`omniclaude` is cross-platform and works seamlessly on **Linux**, **WSL (Ubuntu/Debian)**, **macOS**, and **Windows (PowerShell / CMD)**.
 
 ---
 
-## 🎮 Uso Principal (TUI Interactiva)
+## 🎮 Interactive Terminal UI (TUI)
 
-Ejecuta simplemente:
+Simply run:
 
 ```bash
 omniclaude
 ```
 
-Se abrirá la interfaz interactiva en consola mostrando:
-- **Estado en tiempo real**: Si OmniRoute está online u offline, puerto, sesiones activas y estado de parcheo.
-- **🚀 Lanzar Claude Code**: Selector con autocompletado y categorías:
-  - ⚡ *auto*
-  - 🔀 *Combos*
-  - 💰 *De Pago* (Anthropic, OpenAI, DeepSeek, etc.)
-  - 🆓 *Gratis*
-  - ➕ *Añadir proveedores...* (abre el panel web y recarga la lista)
-- **⚡ Administrador del Servidor OmniRoute**: Iniciar, detener, reiniciar, ver logs o alternar entre modo **Always-On** y **On-Demand**.
-- **🧩 Parchear Claude Globalmente**: Redirigir el comando `claude` estándar hacia OmniRoute.
-- **🔑 Proveedores & Dashboard**: Abrir la interfaz web de gestión (`http://localhost:20128/dashboard/providers`) y actualizar API keys.
+This launches the interactive dashboard displaying:
+- **Live System Status Bar**: OmniRoute online/offline status, port, active session count, patching mode, and free providers filter state.
+- **🚀 Launch Claude Code**: Interactive model picker categorized into:
+  - ⚡ *auto* (smart automatic routing by OmniRoute)
+  - 🔀 *Combos* (multi-model fallback and consensus pipelines)
+  - 💰 *Configured / Paid* (OAuth & API-Key providers: Antigravity, OpenAI, Gemini, etc.)
+  - 🎁 *Free* (No-auth and public community models)
+- **⚡ Manage Providers & Models**: Toggle individual provider logins on/off and enable or disable all free providers with a single click.
+- **🔌 OmniRoute Server Manager**: Start, stop, restart, view logs, or toggle between **Always-On** and **On-Demand** server modes.
+- **🧩 Global Claude Patching**: Configure the standard `claude` command to automatically point to OmniRoute.
+- **🏥 System Doctor**: Pre-flight diagnostics and automatic installer for prerequisites (Node 18+, Claude Code, OmniRoute).
 
 ---
 
-## ⚡ Ciclo de Vida del Servidor (Singleton & Reference Counting)
+## ⚡ Provider & Model Management
 
-OmniClaude resuelve el conflicto de múltiples instancias mediante un registro atómico de sesiones en `~/.omniclaude/state.json`:
+OmniRoute supports dozens of providers, but having hundreds of unused free models can clutter Claude Code's model selector. OmniClaude gives you total control:
 
-1. **Modo `on-demand` (Por defecto)**:
-   - Al lanzar una sesión con `omniclaude launch`, comprueba si el puerto 20128 está abierto. Si no lo está, levanta OmniRoute automáticamente en segundo plano.
-   - Registra el PID de la sesión.
-   - Si abres una segunda o tercera terminal, se conectan al mismo servidor existente sin colisiones.
-   - Al cerrar la última sesión abierta, OmniClaude apaga el servidor limpiamente.
-2. **Modo `service` (Always-On)**:
-   - Registra OmniRoute en el arranque del sistema (mediante `omniroute autostart enable` / servicio systemd de usuario).
-   - El servidor permanece siempre encendido y nunca se apaga al cerrar terminales.
-
-Para cambiar el modo por CLI:
+### 1. Toggle Individual Provider Logins
+Enable or disable specific provider connections (OAuth or API Keys such as Antigravity, OpenAI, Gemini) directly from the TUI or CLI without deleting your credentials:
 ```bash
-omniclaude server mode service    # Siempre encendido
-omniclaude server mode on-demand  # Solo mientras haya sesiones abiertas
+omniclaude providers list
+omniclaude providers toggle antigravity --disable
+omniclaude providers toggle antigravity --enable
+```
+
+### 2. Toggle All Free Providers at Once
+Hide or expose all no-auth and public community models (e.g. AI Horde, DuckDuckGo, Auggie, Cloudflare Playground) with a single command:
+```bash
+omniclaude providers free disable   # Hides all 400+ free models from your catalog
+omniclaude providers free enable    # Restores access to all free community models
+```
+
+### 3. Expose Models in Native Claude Code (`/model`)
+OmniClaude automatically manages `EXPOSE_CC_DISCOVERY_ALIASES=true`. Non-Claude models (Gemini, GPT, DeepSeek, etc.) are mirrored under a `claude/` prefix so they appear in Claude Code's native `/model` picker.
+
+---
+
+## ⚡ Singleton Server Lifecycle & Reference Counting
+
+OmniClaude prevents port collision and resource waste by tracking active sessions atomically in `~/.omniclaude/state.json`:
+
+1. **`on-demand` Mode (Default)**:
+   - When you launch a session with `omniclaude launch`, it checks if OmniRoute is running on port 20128. If offline, it starts it silently in the background.
+   - Registers the PID of the Claude session.
+   - If you open multiple terminals, all sessions connect to the same singleton instance without spawning duplicate processes.
+   - When the last active session closes, OmniClaude shuts down the OmniRoute server cleanly.
+2. **`service` Mode (Always-On)**:
+   - Registers OmniRoute to start on boot (via `omniroute autostart enable` / system service).
+   - The server stays running continuously and does not shut down when terminal windows close.
+
+Switch modes via CLI:
+```bash
+omniclaude server mode service    # Always-On
+omniclaude server mode on-demand  # Shuts down with the last session
 ```
 
 ---
 
-## 🧩 Parcheo Global de `claude`
+## 🧩 Zero-Friction Global Patching
 
-Para que al escribir directamente `claude` en cualquier consola se conecte a OmniRoute:
+Redirect the standard `claude` command across your entire system:
 
-### Opción 1: Configuración Nativa (Recomendada)
-Escribe la configuración directamente en `~/.claude/settings.json` sin tocar binarios:
+### Option 1: Native Settings Mode (Recommended)
+Injects configuration directly into `~/.claude/settings.json` and adds an official `SessionStart` hook so Claude automatically ensures OmniRoute is alive on boot:
 ```bash
 omniclaude patch --mode settings
 ```
 
-### Opción 2: Wrapper Inteligente en PATH
-Genera un shim en `~/.omniclaude/bin/claude` que auto-despierta OmniRoute en <50ms si estaba apagado antes de delegar en el ejecutable real de Claude:
+### Option 2: Smart PATH Wrapper Mode
+Creates an intelligent wrapper shim at `~/.omniclaude/bin/claude` that automatically adds itself to your permanent `PATH` (Windows Registry `HKCU\Environment\Path` and `.bashrc`/`.zshrc` on Linux/WSL):
 ```bash
 omniclaude patch --mode wrapper
 ```
 
-### Restaurar Claude oficial
+### Revert to Standard Claude Code
 ```bash
 omniclaude unpatch
 ```
 
 ---
 
-## 💻 Comandos CLI Directos
+## 💻 CLI Commands Reference
 
-| Comando | Descripción |
+| Command | Description |
 | :--- | :--- |
-| `omniclaude` | Abre la interfaz TUI completa |
-| `omniclaude launch` | Lanza Claude Code apuntando a OmniRoute |
-| `omniclaude launch -m gemini-2.5-pro` | Lanza directamente con un modelo específico |
-| `omniclaude launch -b anthropic` | Lanza con la nube oficial de Anthropic |
-| `omniclaude server start` | Inicia el servidor OmniRoute en segundo plano |
-| `omniclaude server stop` | Detiene el servidor |
-| `omniclaude server restart` | Reinicia el servidor |
-| `omniclaude server status` | Muestra el estado del servidor, puerto y sesiones |
-| `omniclaude patch` | Aplica el parcheo global a Claude |
-| `omniclaude unpatch` | Elimina el parche y restaura Claude Code |
-| `omniclaude open` | Abre el dashboard web de OmniRoute en el navegador |
-| `omniclaude config get` | Muestra la configuración actual de OmniClaude |
-| `omniclaude config set <key> <val>` | Modifica un parámetro de configuración |
+| `omniclaude` | Open interactive TUI |
+| `omniclaude launch` | Launch Claude Code pointed to OmniRoute |
+| `omniclaude launch -m <model>` | Launch directly with a specific model |
+| `omniclaude launch -b anthropic` | Launch pointing to official Anthropic Cloud |
+| `omniclaude providers list` | List configured provider connections and free providers status |
+| `omniclaude providers toggle <id>` | Toggle provider login active/inactive |
+| `omniclaude providers free <enable\|disable>` | Enable or disable all free providers |
+| `omniclaude server start` | Start OmniRoute background daemon |
+| `omniclaude server stop` | Stop OmniRoute daemon |
+| `omniclaude server restart` | Restart OmniRoute daemon |
+| `omniclaude server status` | Display server health, port, and active sessions |
+| `omniclaude patch` | Apply global patch to Claude Code |
+| `omniclaude unpatch` | Remove patch and restore official Claude |
+| `omniclaude doctor` | Check and repair system dependencies |
+| `omniclaude open` | Open OmniRoute web dashboard in browser |
+| `omniclaude config get` | Show current OmniClaude configuration |
+| `omniclaude config set <key> <val>` | Update a configuration setting |
 
 ---
 
-## 📂 Archivos y Directorios de Configuración
+## 📂 Configuration Files
 
-- **Configuración persistente**: `~/.omniclaude/config.json`
-- **Registro de sesiones**: `~/.omniclaude/state.json`
-- **Logs del servidor**: `~/.omniclaude/server.log`
-- **Directorio de shims**: `~/.omniclaude/bin/`
+- **OmniClaude Config**: `~/.omniclaude/config.json`
+- **Session State**: `~/.omniclaude/state.json`
+- **Server Logs**: `~/.omniclaude/server.log`
+- **PATH Shims**: `~/.omniclaude/bin/`
+
+---
+
+## 📄 License
+
+MIT © [Rubén Hidalgo](https://github.com/RubizZ)

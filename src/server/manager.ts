@@ -175,10 +175,45 @@ export class ServerManager {
     saveServerState(state);
 
     if (closed) {
-      return { success: true, message: `OmniRoute server stopped.` };
+      return { success: true, message: 'OmniRoute server stopped.' };
     } else {
       return { success: false, message: `OmniRoute is still listening on port ${port}.` };
     }
+  }
+
+  /**
+   * Restart the OmniRoute server cleanly
+   */
+  static async restart(targetPort?: number): Promise<{ success: boolean; message: string }> {
+    await this.stopServer();
+    const res = await this.startServer(targetPort);
+    return {
+      success: res.success,
+      message: res.message || 'OmniRoute restarted successfully.',
+    };
+  }
+
+  /**
+   * Get formatted server health and status
+   */
+  static async getServerStatus(): Promise<{
+    port: number;
+    status: 'ONLINE' | 'OFFLINE';
+    serverMode: ServerMode;
+    activeSessions: number;
+    pid?: number;
+  }> {
+    const config = loadConfig();
+    const state = loadServerState();
+    const port = state.port || config.omniPort;
+    const isOnline = await this.isPortListening(port);
+    return {
+      port,
+      status: isOnline ? 'ONLINE' : 'OFFLINE',
+      serverMode: config.serverMode,
+      activeSessions: state.activeSessions.filter((s) => this.isPidAlive(s.pid)).length,
+      pid: state.serverPid,
+    };
   }
 
   /**
@@ -265,7 +300,7 @@ export class ServerManager {
       // In platforms without systemd, saving config is still preserved
       return {
         success: true,
-        message: `Mode set to ${mode} (native autostart command notice: ${e.message})`,
+        message: `Mode set to ${mode} (autostart notice: ${e.message})`,
       };
     }
   }

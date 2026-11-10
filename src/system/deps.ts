@@ -106,7 +106,7 @@ export class DependencyManager {
         packageName: '@anthropic-ai/claude-code',
         installed: this.isCommandAvailable('claude'),
         version: this.getCommandVersion('claude') || undefined,
-        description: 'Frontend oficial de Claude Code de Anthropic',
+        description: 'Official Claude Code frontend by Anthropic',
       },
       {
         name: 'OmniRoute',
@@ -114,7 +114,7 @@ export class DependencyManager {
         packageName: 'omniroute',
         installed: this.isCommandAvailable('omniroute'),
         version: this.getCommandVersion('omniroute') || undefined,
-        description: 'Smart AI Router con fallbacks automáticos',
+        description: 'Smart multi-provider AI Router with automatic fallbacks',
       },
     ];
 
@@ -129,7 +129,7 @@ export class DependencyManager {
         shell: isWin ? 'cmd.exe' : '/bin/sh',
       });
       return true;
-    } catch (e: any) {
+    } catch {
       return false;
     }
   }
@@ -141,7 +141,7 @@ export class DependencyManager {
     const { nodeOk, nodeVer, deps } = this.checkAll();
 
     if (!nodeOk) {
-      const msg = `Node.js 18+ es requerido (detectado: ${nodeVer}). Por favor actualiza Node.js.`;
+      const msg = `Node.js 18+ is required (detected: ${nodeVer}). Please upgrade Node.js.`;
       if (interactive) p.log.error(pc.red(msg));
       else console.error(msg);
       return false;
@@ -150,28 +150,28 @@ export class DependencyManager {
     for (const dep of deps) {
       if (!dep.installed) {
         if (!interactive) {
-          console.warn(`⚠️ ${dep.name} no está instalado (${dep.packageName}).`);
+          console.warn(`⚠️ ${dep.name} is not installed (${dep.packageName}).`);
           continue;
         }
 
-        p.log.warn(pc.yellow(`⚠️ ${dep.name} no está instalado en el sistema.`));
+        p.log.warn(pc.yellow(`⚠️ ${dep.name} is not installed on the system.`));
 
         const install = await p.confirm({
-          message: `¿Deseas instalar ${dep.name} ahora globalmente? (npm install -g ${dep.packageName})`,
+          message: `Do you want to install ${dep.name} globally now? (npm install -g ${dep.packageName})`,
           initialValue: true,
         });
 
         if (p.isCancel(install) || !install) {
-          p.log.warn(pc.dim(`Instalación de ${dep.name} omitida.`));
+          p.log.warn(pc.dim(`Installation of ${dep.name} skipped.`));
           continue;
         }
 
         const spinner = p.spinner();
-        spinner.start(`Instalando ${dep.packageName} globalmente...`);
+        spinner.start(`Installing ${dep.packageName} globally...`);
         const ok = this.installPackage(dep.packageName);
 
         if (ok) {
-          spinner.stop(pc.green(`✅ ${dep.name} se instaló correctamente.`));
+          spinner.stop(pc.green(`✅ ${dep.name} installed successfully.`));
           dep.installed = true;
           dep.version = this.getCommandVersion(dep.command) || undefined;
 
@@ -180,7 +180,7 @@ export class DependencyManager {
             OmniRouteProvider.ensureStorageEncryptionKey();
           }
         } else {
-          spinner.stop(pc.red(`❌ Falló la instalación de ${dep.packageName}. Comprueba los permisos de npm.`));
+          spinner.stop(pc.red(`❌ Failed to install ${dep.packageName}. Check npm permissions.`));
         }
       }
     }
@@ -191,14 +191,14 @@ export class DependencyManager {
       if (interactive) {
         const enableAliases = await p.confirm({
           message:
-            '¿Deseas activar los modelos de OmniRoute en Claude Code (EXPOSE_CC_DISCOVERY_ALIASES)?\n  (Permite que aparezcan todos los modelos de OmniRoute en el comando /model de Claude)',
+            'Do you want to expose OmniRoute models in Claude Code (EXPOSE_CC_DISCOVERY_ALIASES)?\n  (Allows non-Claude models to appear in Claude Code\'s native /model command)',
           initialValue: true,
         });
 
         const chosen = p.isCancel(enableAliases) ? true : Boolean(enableAliases);
         OmniRouteProvider.setDiscoveryAliases(chosen);
         if (chosen) {
-          p.log.success(pc.green('✅ Modelos de OmniRoute activados en Claude Code (/model).'));
+          p.log.success(pc.green('✅ OmniRoute models enabled in Claude Code (/model).'));
         }
       } else {
         OmniRouteProvider.setDiscoveryAliases(true);
