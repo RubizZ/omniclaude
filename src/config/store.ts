@@ -12,8 +12,6 @@ export const LOG_PATH = path.join(CONFIG_DIR, 'server.log');
 export const DEFAULT_CONFIG: OmniClaudeConfig = {
   omniPort: 20128,
   omniApiKey: '',
-  routaticPort: 3456,
-  routaticApiKey: '',
   serverMode: 'on-demand',
   defaultBackend: 'omniroute',
   lastModel: 'auto',

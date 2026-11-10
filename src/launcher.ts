@@ -2,7 +2,6 @@ import { spawn } from 'node:child_process';
 import { loadConfig, saveConfig } from './config/store.js';
 import { ServerManager } from './server/manager.js';
 import { OmniRouteProvider } from './providers/omniroute.js';
-import { RoutaticProvider } from './providers/routatic.js';
 import { BackendType } from './types.js';
 
 export interface LaunchOptions {
@@ -21,19 +20,6 @@ export class ClaudeLauncher {
       delete env.ANTHROPIC_BASE_URL;
       delete env.ANTHROPIC_AUTH_TOKEN;
       delete env.ANTHROPIC_MODEL;
-    } else if (options.backend === 'routatic') {
-      const port = config.routaticPort;
-      await RoutaticProvider.ensureRunning(port);
-
-      env.ROUTATIC_PROXY_API_KEY = config.routaticApiKey || 'unused';
-      env.ANTHROPIC_AUTH_TOKEN = 'unused';
-      env.ANTHROPIC_BASE_URL = `http://127.0.0.1:${port}`;
-      if (options.model) {
-        env.ANTHROPIC_MODEL = options.model;
-        saveConfig({ lastModel: options.model, defaultBackend: 'routatic' });
-      }
-      env.CLAUDE_CODE_DISABLE_UNKNOWN_MODEL_WINDOW_ENFORCEMENT = '1';
-      env.CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY = '1';
     } else {
       // OmniRoute backend
       const port = config.omniPort;

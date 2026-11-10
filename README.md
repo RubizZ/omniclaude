@@ -95,7 +95,6 @@ omniclaude unpatch
 | `omniclaude` | Abre la interfaz TUI completa |
 | `omniclaude launch` | Lanza Claude Code apuntando a OmniRoute |
 | `omniclaude launch -m gemini-2.5-pro` | Lanza directamente con un modelo específico |
-| `omniclaude launch -b routatic` | Lanza utilizando Routatic Proxy |
 | `omniclaude launch -b anthropic` | Lanza con la nube oficial de Anthropic |
 | `omniclaude server start` | Inicia el servidor OmniRoute en segundo plano |
 | `omniclaude server stop` | Detiene el servidor |

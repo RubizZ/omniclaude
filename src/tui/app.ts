@@ -6,7 +6,6 @@ import { ServerManager } from '../server/manager.js';
 import { OmniRouteProvider } from '../providers/omniroute.js';
 import { ClaudePatcher } from '../patcher/patcher.js';
 import { ClaudeLauncher } from '../launcher.js';
-import { RoutaticProvider, ROUTATIC_DEFAULT_MODELS } from '../providers/routatic.js';
 import { DependencyManager } from '../system/deps.js';
 import { BackendType, ServerMode, PatchMode } from '../types.js';
 
@@ -104,11 +103,6 @@ export class OmniClaudeTUI {
           hint: 'Smart AI Router con fallbacks y catálogo completo',
         },
         {
-          value: 'routatic',
-          label: '🔀 Routatic Proxy',
-          hint: 'Proxy OpenCode Go en puerto ' + config.routaticPort,
-        },
-        {
           value: 'anthropic',
           label: '🌐 Oficial (Anthropic Cloud)',
           hint: 'Conexión directa estándar',
@@ -121,18 +115,6 @@ export class OmniClaudeTUI {
     if (backend === 'anthropic') {
       p.log.info(pc.cyan('Lanzando Claude Code con el backend oficial...'));
       await ClaudeLauncher.launch({ backend: 'anthropic' });
-      return;
-    }
-
-    if (backend === 'routatic') {
-      const selectedModel = await p.select({
-        message: '🧠 Selecciona el modelo para Routatic:',
-        options: ROUTATIC_DEFAULT_MODELS.map((m) => ({ value: m, label: m })),
-      });
-      if (p.isCancel(selectedModel)) return;
-
-      p.log.info(pc.cyan(`Lanzando Claude Code vía Routatic Proxy (${selectedModel})...`));
-      await ClaudeLauncher.launch({ backend: 'routatic', model: String(selectedModel) });
       return;
     }
 
@@ -402,11 +384,6 @@ export class OmniClaudeTUI {
           label: '🔑 Modificar API Key de OmniRoute',
           hint: `Actual: ${config.omniApiKey ? config.omniApiKey.substring(0, 12) + '...' : '(ninguna)'}`,
         },
-        {
-          value: 'set_routatic_key',
-          label: '🔑 Modificar API Key de Routatic',
-          hint: `Actual: ${config.routaticApiKey ? config.routaticApiKey.substring(0, 8) + '...' : '(ninguna)'}`,
-        },
         { value: 'back', label: '⬅️ Volver' },
       ],
     });
@@ -423,15 +400,6 @@ export class OmniClaudeTUI {
       });
       if (!p.isCancel(key) && key) {
         saveConfig({ omniApiKey: key.trim() });
-        p.log.success('API Key guardada con éxito.');
-      }
-    } else if (action === 'set_routatic_key') {
-      const key = await p.text({
-        message: 'Introduce tu clave de Routatic Proxy:',
-        defaultValue: config.routaticApiKey,
-      });
-      if (!p.isCancel(key) && key) {
-        saveConfig({ routaticApiKey: key.trim() });
         p.log.success('API Key guardada con éxito.');
       }
     }

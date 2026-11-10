@@ -1,12 +1,10 @@
-export type BackendType = 'omniroute' | 'routatic' | 'anthropic';
+export type BackendType = 'omniroute' | 'anthropic';
 export type ServerMode = 'service' | 'on-demand';
 export type PatchMode = 'settings' | 'wrapper';
 
 export interface OmniClaudeConfig {
   omniPort: number;
   omniApiKey: string;
-  routaticPort: number;
-  routaticApiKey: string;
   serverMode: ServerMode;
   defaultBackend: BackendType;
   lastModel?: string;

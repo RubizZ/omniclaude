@@ -24,7 +24,7 @@ program.action(async () => {
 program
   .command('launch [claudeArgs...]')
   .description('Directly launch Claude Code pointed at chosen backend')
-  .option('-b, --backend <backend>', 'Backend to use (omniroute, routatic, anthropic)', 'omniroute')
+  .option('-b, --backend <backend>', 'Backend to use (omniroute, anthropic)', 'omniroute')
   .option('-m, --model <model>', 'Specific model identifier (e.g. auto, claude-3-7-sonnet)')
   .action(async (claudeArgs, options) => {
     await DependencyManager.ensurePrerequisites(true);
