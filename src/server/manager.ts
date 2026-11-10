@@ -81,11 +81,23 @@ export class ServerManager {
 
     try {
       const isWin = process.platform === 'win32';
+      const omniJs = DependencyManager.findOmnirouteJsEntry();
       const omniExe = DependencyManager.findOmnirouteExecutable();
-      const cmd = isWin ? 'cmd.exe' : omniExe;
-      const args = isWin
-        ? ['/c', omniExe, 'serve', '--no-open', '--port', String(port)]
-        : ['serve', '--no-open', '--port', String(port)];
+
+      let cmd: string;
+      let args: string[];
+
+      if (omniJs && fs.existsSync(omniJs)) {
+        // Direct Node invocation: completely avoids cmd.exe window popup on Windows!
+        cmd = process.execPath;
+        args = [omniJs, 'serve', '--no-open', '--port', String(port)];
+      } else if (isWin) {
+        cmd = 'cmd.exe';
+        args = ['/c', omniExe, 'serve', '--no-open', '--port', String(port)];
+      } else {
+        cmd = omniExe;
+        args = ['serve', '--no-open', '--port', String(port)];
+      }
 
       const exposeAliases = config.exposeDiscoveryAliases !== false ? 'true' : 'false';
       const storageKey = OmniRouteProvider.ensureStorageEncryptionKey();

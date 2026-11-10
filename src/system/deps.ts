@@ -1,3 +1,6 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import os from 'node:os';
 import { execSync } from 'node:child_process';
 import * as p from '@clack/prompts';
 import pc from 'picocolors';
@@ -92,6 +95,63 @@ export class DependencyManager {
     } catch {}
 
     return isWin ? 'omniroute.cmd' : 'omniroute';
+  }
+
+  /**
+   * Find the actual JS entrypoint file for OmniRoute (.mjs or .js)
+   * Launching directly via process.execPath (node.exe) avoids cmd.exe window popups on Windows.
+   */
+  static findOmnirouteJsEntry(): string | null {
+    try {
+      const isWin = process.platform === 'win32';
+      const omniExe = this.findOmnirouteExecutable();
+
+      // 1. If omniExe itself is already a JS/MJS file
+      if (omniExe.endsWith('.mjs') || omniExe.endsWith('.js')) {
+        if (fs.existsSync(omniExe)) return omniExe;
+      }
+
+      // 2. Look relative to the directory of omniExe (e.g. npm global bin folder)
+      if (path.isAbsolute(omniExe)) {
+        const binDir = path.dirname(omniExe);
+        const relCandidate = path.join(binDir, 'node_modules', 'omniroute', 'bin', 'omniroute.mjs');
+        if (fs.existsSync(relCandidate)) return relCandidate;
+
+        // If omniExe is a Windows batch file (.cmd / .bat), parse it to locate the target JS file
+        if (isWin && (omniExe.toLowerCase().endsWith('.cmd') || omniExe.toLowerCase().endsWith('.bat'))) {
+          try {
+            const content = fs.readFileSync(omniExe, 'utf-8');
+            const match = content.match(/"(%dp0%[^"]+\.m?js)"/i) || content.match(/["']([^"']+\.m?js)["']/i);
+            if (match && match[1]) {
+              const resolved = path.normalize(match[1].replace(/%dp0%/gi, binDir + path.sep));
+              if (fs.existsSync(resolved)) return resolved;
+            }
+          } catch {}
+        }
+      }
+
+      // 3. Check standard Windows AppData npm global directory
+      if (isWin) {
+        const appData = process.env.APPDATA || path.join(os.homedir(), 'AppData', 'Roaming');
+        const npmCandidate = path.join(appData, 'npm', 'node_modules', 'omniroute', 'bin', 'omniroute.mjs');
+        if (fs.existsSync(npmCandidate)) return npmCandidate;
+      }
+
+      // 4. Try global npm root fallback
+      try {
+        const globalNpmRoot = execSync('npm root -g', {
+          encoding: 'utf-8',
+          stdio: ['ignore', 'pipe', 'ignore'],
+          windowsHide: true,
+        }).trim();
+        if (globalNpmRoot) {
+          const globalCandidate = path.join(globalNpmRoot, 'omniroute', 'bin', 'omniroute.mjs');
+          if (fs.existsSync(globalCandidate)) return globalCandidate;
+        }
+      } catch {}
+    } catch {}
+
+    return null;
   }
 
   static checkAll(): { nodeOk: boolean; nodeVer: string; deps: DepStatus[] } {
