@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import { loadConfig, saveConfig, SHIM_DIR } from '../config/store.js';
+import { DependencyManager } from '../system/deps.js';
 import { PatchMode } from '../types.js';
 
 export const CLAUDE_DIR = path.join(os.homedir(), '.claude');
@@ -85,6 +86,8 @@ export class ClaudePatcher {
     }
 
     if (mode === 'wrapper') {
+      const realClaude = DependencyManager.findClaudeExecutable();
+
       // 1. Create bash shim for Linux/WSL/macOS
       const shimShPath = path.join(SHIM_DIR, 'claude');
       const bashScript = `#!/usr/bin/env bash
@@ -101,15 +104,7 @@ export EXPOSE_CC_DISCOVERY_ALIASES=true
 # Ensure OmniRoute is running silently if needed
 omniclaude server ensure-running --quiet 2>/dev/null || true
 
-# Find real claude in system PATH (ignoring this shim directory)
-REAL_CLAUDE=$(PATH=$(echo "$PATH" | tr ':' '\\n' | grep -v "${SHIM_DIR}" | paste -sd ':' -) which claude 2>/dev/null)
-
-if [ -z "$REAL_CLAUDE" ]; then
-    echo "❌ Error: Real claude binary not found in PATH." >&2
-    exit 1
-fi
-
-exec "$REAL_CLAUDE" "$@"
+exec "${realClaude}" "$@"
 `;
 
       fs.writeFileSync(shimShPath, bashScript, { mode: 0o755 });
@@ -129,7 +124,7 @@ if %errorlevel% equ 0 (
   call omniclaude server ensure-running --quiet
 )
 
-claude.exe %*
+"${realClaude}" %*
 `;
       fs.writeFileSync(shimCmdPath, cmdScript, { mode: 0o755 });
 

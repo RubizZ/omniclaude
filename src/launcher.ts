@@ -2,6 +2,7 @@ import { spawn } from 'node:child_process';
 import { loadConfig, saveConfig } from './config/store.js';
 import { ServerManager } from './server/manager.js';
 import { OmniRouteProvider } from './providers/omniroute.js';
+import { DependencyManager } from './system/deps.js';
 import { BackendType } from './types.js';
 
 export interface LaunchOptions {
@@ -40,8 +41,8 @@ export class ClaudeLauncher {
       env.EXPOSE_CC_DISCOVERY_ALIASES = 'true';
     }
 
-    const isWin = process.platform === 'win32';
-    const claudeBin = isWin ? 'claude.cmd' : 'claude';
+    const claudeBin = DependencyManager.findClaudeExecutable();
+    const isScript = claudeBin.endsWith('.cmd') || claudeBin.endsWith('.bat');
     const claudeArgs = options.args || [];
 
     // Setup cleanup handler on exit
@@ -66,7 +67,7 @@ export class ClaudeLauncher {
       const child = spawn(claudeBin, claudeArgs, {
         stdio: 'inherit',
         env,
-        shell: isWin,
+        shell: isScript,
       });
 
       child.on('error', (err: Error) => {

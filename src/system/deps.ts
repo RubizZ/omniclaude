@@ -38,6 +38,32 @@ export class DependencyManager {
     }
   }
 
+  /**
+   * Find the real absolute path or executable command for Claude Code
+   */
+  static findClaudeExecutable(): string {
+    const isWin = process.platform === 'win32';
+    try {
+      const checkCmd = isWin ? 'where.exe claude' : 'which claude';
+      const out = execSync(checkCmd, {
+        encoding: 'utf-8',
+        stdio: ['ignore', 'pipe', 'ignore'],
+        windowsHide: true,
+      });
+      const lines = out
+        .trim()
+        .split(/\r?\n/)
+        .map((l) => l.trim())
+        .filter(Boolean);
+
+      // Filter out any wrapper in ~/.omniclaude/bin to prevent infinite loops
+      const real = lines.find((l) => !l.toLowerCase().includes('.omniclaude'));
+      if (real) return real;
+    } catch {}
+
+    return 'claude';
+  }
+
   static checkAll(): { nodeOk: boolean; nodeVer: string; deps: DepStatus[] } {
     const nodeVer = process.version;
     const major = parseInt(nodeVer.replace('v', '').split('.')[0], 10);
