@@ -5,4 +5,5 @@ export * from './providers/omniroute.js';
 export * from './providers/routatic.js';
 export * from './patcher/patcher.js';
 export * from './launcher.js';
+export * from './system/deps.js';
 export * from './tui/app.js';

@@ -7,6 +7,7 @@ import { OmniRouteProvider } from '../providers/omniroute.js';
 import { ClaudePatcher } from '../patcher/patcher.js';
 import { ClaudeLauncher } from '../launcher.js';
 import { RoutaticProvider, ROUTATIC_DEFAULT_MODELS } from '../providers/routatic.js';
+import { DependencyManager } from '../system/deps.js';
 import { BackendType, ServerMode, PatchMode } from '../types.js';
 
 export class OmniClaudeTUI {
@@ -18,6 +19,9 @@ export class OmniClaudeTUI {
         pc.bold(pc.white('Claude Code + OmniRoute Singleton Manager'))
     );
 
+    // Verify dependencies before proceeding
+    await DependencyManager.ensurePrerequisites(true);
+
     while (true) {
       await this.renderStatusBar();
 
@@ -28,6 +32,7 @@ export class OmniClaudeTUI {
           { value: 'server', label: '⚡ Administrador del Servidor OmniRoute', hint: 'Singleton & Autostart' },
           { value: 'patch', label: '🧩 Parchear Claude Globalmente', hint: 'Usa OmniRoute al escribir "claude"' },
           { value: 'providers', label: '🔑 Proveedores y Dashboard', hint: 'Añadir API keys y abrir portal web' },
+          { value: 'doctor', label: '🏥 Diagnóstico del Sistema (Doctor)', hint: 'Verifica e instala dependencias' },
           { value: 'exit', label: '🚪 Salir' },
         ],
       });
@@ -49,6 +54,9 @@ export class OmniClaudeTUI {
           break;
         case 'providers':
           await this.handleProvidersFlow();
+          break;
+        case 'doctor':
+          await this.handleDoctorFlow();
           break;
       }
     }
@@ -426,6 +434,33 @@ export class OmniClaudeTUI {
         saveConfig({ routaticApiKey: key.trim() });
         p.log.success('API Key guardada con éxito.');
       }
+    }
+  }
+
+  /**
+   * Flow to diagnose and repair dependencies
+   */
+  static async handleDoctorFlow(): Promise<void> {
+    const { nodeOk, nodeVer, deps } = DependencyManager.checkAll();
+
+    const lines: string[] = [
+      `Node.js: ${nodeOk ? pc.green(`OK (${nodeVer})`) : pc.red(`REQUERIDO >= 18 (${nodeVer})`)}`,
+    ];
+
+    for (const dep of deps) {
+      const status = dep.installed
+        ? pc.green(`Instalado (${dep.version || 'OK'})`)
+        : pc.red(`No instalado (ejecuta npm i -g ${dep.packageName})`);
+      lines.push(`${dep.name} [${dep.command}]: ${status}`);
+    }
+
+    p.note(lines.join('\n'), 'Diagnóstico del Sistema');
+
+    const missing = deps.filter((d) => !d.installed);
+    if (missing.length > 0) {
+      await DependencyManager.ensurePrerequisites(true);
+    } else {
+      await p.confirm({ message: 'Todo está instalado y listo para usar. Presiona Enter para continuar.' });
     }
   }
 }

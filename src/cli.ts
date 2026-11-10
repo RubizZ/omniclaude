@@ -5,6 +5,7 @@ import { ClaudeLauncher } from './launcher.js';
 import { ClaudePatcher } from './patcher/patcher.js';
 import { OmniRouteProvider } from './providers/omniroute.js';
 import { loadConfig, saveConfig, loadServerState } from './config/store.js';
+import { DependencyManager } from './system/deps.js';
 import { BackendType, PatchMode, ServerMode } from './types.js';
 
 const program = new Command();
@@ -26,12 +27,41 @@ program
   .option('-b, --backend <backend>', 'Backend to use (omniroute, routatic, anthropic)', 'omniroute')
   .option('-m, --model <model>', 'Specific model identifier (e.g. auto, claude-3-7-sonnet)')
   .action(async (claudeArgs, options) => {
+    await DependencyManager.ensurePrerequisites(true);
     const backend = options.backend as BackendType;
     await ClaudeLauncher.launch({
       backend,
       model: options.model,
       args: claudeArgs,
     });
+  });
+
+// Doctor command to diagnose and install prerequisites
+program
+  .command('doctor')
+  .description('Check and install required dependencies (Node.js, Claude Code, OmniRoute)')
+  .option('--fix', 'Automatically install missing dependencies without asking')
+  .action(async (opts) => {
+    const { nodeOk, nodeVer, deps } = DependencyManager.checkAll();
+    console.log(`Node.js: ${nodeOk ? `OK (${nodeVer})` : `REQUIRED >= 18 (${nodeVer})`}`);
+    for (const dep of deps) {
+      const status = dep.installed ? `INSTALLED (${dep.version || 'OK'})` : 'NOT INSTALLED';
+      console.log(`${dep.name} (${dep.command}): ${status}`);
+    }
+
+    const missing = deps.filter((d) => !d.installed);
+    if (missing.length > 0) {
+      if (opts.fix) {
+        for (const m of missing) {
+          console.log(`Installing ${m.packageName}...`);
+          DependencyManager.installPackage(m.packageName);
+        }
+      } else {
+        await DependencyManager.ensurePrerequisites(true);
+      }
+    } else {
+      console.log('All dependencies are installed.');
+    }
   });
 
 // Server management
