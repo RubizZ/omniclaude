@@ -5,6 +5,7 @@ import os from 'node:os';
 import open from 'open';
 import { loadConfig, saveConfig } from '../config/store.js';
 import { ServerManager } from '../server/manager.js';
+import { DependencyManager } from '../system/deps.js';
 import { OmniModel, ProviderGroup } from '../types.js';
 
 export const OMNIROUTE_DIR = path.join(os.homedir(), '.omniroute');
@@ -60,38 +61,54 @@ export class OmniRouteProvider {
     } catch {}
   }
   /**
-   * Ensure a valid API Key exists for OmniRoute, registering a new one if missing
+   * Ensure a valid API Key exists for OmniRoute, registering a new one if missing or rejected
    */
   static async ensureApiKey(port?: number): Promise<string> {
     const config = loadConfig();
     const serverPort = port || config.omniPort;
 
-    if (config.omniApiKey && config.omniApiKey.trim() !== '') {
-      return config.omniApiKey;
-    }
-
-    // Server must be running to create an API key
+    // Server must be running to test or create an API key
     await ServerManager.ensureRunning(serverPort);
 
-    // Try generating via omniroute CLI command
+    // If a key is configured, verify it works against /v1/models
+    if (config.omniApiKey && config.omniApiKey.trim() !== '') {
+      try {
+        const testRes = await fetch(`http://127.0.0.1:${serverPort}/v1/models`, {
+          headers: { Authorization: `Bearer ${config.omniApiKey}` },
+        });
+        if (testRes.status === 200) {
+          return config.omniApiKey;
+        }
+      } catch {}
+    }
+
+    // Key is either missing or rejected (401), generate a real one via omniroute CLI
+    const tempFile = path.join(os.tmpdir(), `omni-key-${Date.now()}.json`);
     try {
-      const tempAdmin = `sk-admin-${Math.random().toString(36).substring(2, 10)}`;
-      const output = execSync(
-        `omniroute api api-keys post-api-keys --api-key "${tempAdmin}" --body "{\\"name\\": \\"omniclaude\\"}"`,
-        { encoding: 'utf-8', stdio: ['ignore', 'pipe', 'ignore'] }
-      );
+      fs.writeFileSync(tempFile, JSON.stringify({ name: 'omniclaude' }), 'utf-8');
+      const omniExe = DependencyManager.findOmnirouteExecutable();
+      const isWin = process.platform === 'win32';
+      const cmd = isWin ? `"${omniExe}"` : omniExe;
+
+      const output = execSync(`${cmd} api api-keys post-api-keys --body @"${tempFile}"`, {
+        encoding: 'utf-8',
+        stdio: ['ignore', 'pipe', 'ignore'],
+        windowsHide: true,
+      });
 
       const match = output.match(/sk-[a-f0-9]{16}-[a-f0-9]{6}-[a-f0-9]{8}/);
       if (match && match[0]) {
         saveConfig({ omniApiKey: match[0] });
         return match[0];
       }
-    } catch {}
+    } catch {} finally {
+      try {
+        if (fs.existsSync(tempFile)) fs.unlinkSync(tempFile);
+      } catch {}
+    }
 
-    // Fallback: check environment or default key format
-    const fallbackKey = `sk-${Math.random().toString(36).substring(2, 10)}-${Date.now().toString(36)}`;
-    saveConfig({ omniApiKey: fallbackKey });
-    return fallbackKey;
+    // Fallback: check environment
+    return config.omniApiKey || 'unused';
   }
 
   /**
@@ -106,28 +123,55 @@ export class OmniRouteProvider {
   }> {
     const config = loadConfig();
     const serverPort = port || config.omniPort;
-    const key = apiKey || (await this.ensureApiKey(serverPort));
+    let key = apiKey || (await this.ensureApiKey(serverPort));
 
     await ServerManager.ensureRunning(serverPort);
 
     let modelsData: OmniModel[] = [];
     try {
-      const res = await fetch(`http://127.0.0.1:${serverPort}/v1/models`, {
+      let res = await fetch(`http://127.0.0.1:${serverPort}/v1/models`, {
         headers: { Authorization: `Bearer ${key}` },
       });
+
+      // If 401 Unauthorized, key expired or invalid; regenerate and retry once
+      if (res.status === 401) {
+        saveConfig({ omniApiKey: '' });
+        key = await this.ensureApiKey(serverPort);
+        res = await fetch(`http://127.0.0.1:${serverPort}/v1/models`, {
+          headers: { Authorization: `Bearer ${key}` },
+        });
+      }
+
       if (res.ok) {
         const json: any = await res.json();
         modelsData = json.data || [];
       }
     } catch {}
 
-    // Fetch manifest for provider types (auth type: none = free, apikey/oauth = paid)
+    // Fetch manifest for provider types
     let manifestData: any[] = [];
     try {
       const manifestRes = await fetch(`http://127.0.0.1:${serverPort}/api/v1/provider-plugin-manifest`);
       if (manifestRes.ok) {
         const json: any = await manifestRes.json();
         manifestData = Array.isArray(json) ? json : [];
+      }
+    } catch {}
+
+    // Fetch configured provider connections (Antigravity, Gemini, OpenAI, etc.)
+    let configuredProviders: any[] = [];
+    try {
+      const omniExe = DependencyManager.findOmnirouteExecutable();
+      const isWin = process.platform === 'win32';
+      const cmd = isWin ? `"${omniExe}"` : omniExe;
+      const raw = execSync(`${cmd} api providers get-api-providers-client`, {
+        encoding: 'utf-8',
+        stdio: ['ignore', 'pipe', 'ignore'],
+        windowsHide: true,
+      });
+      const match = raw.match(/\[\s*\{.*\}\s*\]/s);
+      if (match) {
+        configuredProviders = JSON.parse(match[0]);
       }
     } catch {}
 
@@ -161,27 +205,44 @@ export class OmniRouteProvider {
         continue;
       }
 
-      const plugin = manifestData.find((p) => p.id === prov);
-      const authType = plugin?.auth?.type;
+      const conf = configuredProviders.find(
+        (c) => c.provider?.toLowerCase() === prov.toLowerCase()
+      );
+      const plugin = manifestData.find(
+        (p) => p.id?.toLowerCase() === prov.toLowerCase()
+      );
+
+      const authType = conf?.authType || plugin?.auth?.type;
 
       const isFree =
         authType === 'none' ||
         prov.toLowerCase().includes('free') ||
         prov.toLowerCase().includes('ollama');
 
-      const isPaid = authType === 'apikey' || authType === 'oauth';
+      const isPaid =
+        authType === 'apikey' ||
+        authType === 'oauth' ||
+        prov.toLowerCase() === 'antigravity' ||
+        Boolean(conf);
+
+      let displayName = plugin?.name || prov;
+      if (conf?.name) {
+        displayName = `${prov} (${conf.name})`;
+      } else if (conf?.providerSpecificData?.plan) {
+        displayName = `${prov} (${conf.providerSpecificData.plan})`;
+      }
 
       const group: ProviderGroup = {
         id: prov,
-        name: plugin?.name || prov,
+        name: displayName,
         type: isFree ? 'free' : isPaid ? 'paid' : 'other',
         models,
       };
 
-      if (isFree) {
-        freeProviders.push(group);
-      } else if (isPaid) {
+      if (isPaid) {
         paidProviders.push(group);
+      } else if (isFree) {
+        freeProviders.push(group);
       } else {
         otherProviders.push(group);
       }

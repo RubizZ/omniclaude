@@ -2,6 +2,7 @@ import { spawn, execSync } from 'node:child_process';
 import fs from 'node:fs';
 import net from 'node:net';
 import { loadConfig, loadServerState, saveServerState, saveConfig, LOG_PATH } from '../config/store.js';
+import { DependencyManager } from '../system/deps.js';
 import { ServerMode } from '../types.js';
 
 export class ServerManager {
@@ -79,9 +80,10 @@ export class ServerManager {
 
     try {
       const isWin = process.platform === 'win32';
-      const cmd = isWin ? 'cmd.exe' : 'omniroute';
+      const omniExe = DependencyManager.findOmnirouteExecutable();
+      const cmd = isWin ? 'cmd.exe' : omniExe;
       const args = isWin
-        ? ['/c', 'omniroute', 'serve', '--no-open', '--port', String(port)]
+        ? ['/c', omniExe, 'serve', '--no-open', '--port', String(port)]
         : ['serve', '--no-open', '--port', String(port)];
 
       const exposeAliases = config.exposeDiscoveryAliases !== false ? 'true' : 'false';
