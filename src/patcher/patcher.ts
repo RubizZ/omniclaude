@@ -3,6 +3,8 @@ import path from 'node:path';
 import os from 'node:os';
 import { loadConfig, saveConfig, SHIM_DIR } from '../config/store.js';
 import { DependencyManager } from '../system/deps.js';
+import { ServerManager } from '../server/manager.js';
+import { PathManager } from './path.js';
 import { PatchMode } from '../types.js';
 
 export const CLAUDE_DIR = path.join(os.homedir(), '.claude');
@@ -54,7 +56,7 @@ export class ClaudePatcher {
     const model = targetModel || config.lastModel || 'auto';
 
     if (mode === 'settings') {
-      // Ensure directory exists
+      // 1. Ensure directory exists
       if (!fs.existsSync(CLAUDE_DIR)) {
         fs.mkdirSync(CLAUDE_DIR, { recursive: true });
       }
@@ -68,6 +70,7 @@ export class ClaudePatcher {
         }
       }
 
+      // Configure Environment
       settings.env = settings.env || {};
       settings.env.ANTHROPIC_BASE_URL = `http://127.0.0.1:${port}`;
       settings.env.ANTHROPIC_AUTH_TOKEN = apiKey;
@@ -76,12 +79,39 @@ export class ClaudePatcher {
       settings.env.CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY = '1';
       settings.env.EXPOSE_CC_DISCOVERY_ALIASES = config.exposeDiscoveryAliases !== false ? 'true' : 'false';
 
+      // 2. Add SessionStart hook so Claude automatically ensures OmniRoute is alive even if stopped
+      settings.hooks = settings.hooks || {};
+      settings.hooks.SessionStart = settings.hooks.SessionStart || [];
+      const hookCmd = 'omniclaude server ensure-running --quiet';
+      const alreadyHasHook = settings.hooks.SessionStart.some((entry: any) =>
+        entry?.hooks?.some((h: any) => h.command?.includes('omniclaude server ensure-running'))
+      );
+      if (!alreadyHasHook) {
+        settings.hooks.SessionStart.push({
+          hooks: [
+            {
+              type: 'command',
+              command: hookCmd,
+              timeout: 10,
+            },
+          ],
+        });
+      }
+
       fs.writeFileSync(CLAUDE_SETTINGS_PATH, JSON.stringify(settings, null, 2), 'utf-8');
+
+      // 3. Automatically switch to Always-On (service) mode if currently on-demand
+      let modeNote = '';
+      if (config.serverMode !== 'service') {
+        await ServerManager.setServerMode('service');
+        modeNote = '\n⚡ Se ha activado el modo Always-On para que OmniRoute inicie con el sistema.';
+      }
+      await ServerManager.ensureRunning(port);
 
       saveConfig({ patched: true, patchMode: 'settings', lastModel: model });
       return {
         success: true,
-        message: `Claude Code configured to use OmniRoute via ~/.claude/settings.json (Model: ${model})`,
+        message: `Claude Code configurado en ~/.claude/settings.json (Modelo: ${model}).${modeNote}\n🛡️ Se ha añadido un hook oficial (SessionStart) para garantizar que el servidor siempre esté encendido al abrir Claude.`,
       };
     }
 
@@ -128,11 +158,18 @@ if %errorlevel% equ 0 (
 `;
       fs.writeFileSync(shimCmdPath, cmdScript, { mode: 0o755 });
 
+      // 3. Automatically add SHIM_DIR to PATH
+      const pathResult = PathManager.addToPath();
+
       saveConfig({ patched: true, patchMode: 'wrapper', lastModel: model });
+
+      const modifiedNote = pathResult.modifiedFiles.length > 0
+        ? `\n✅ Añadido automáticamente al PATH en: ${pathResult.modifiedFiles.join(', ')}`
+        : '\nℹ️ El directorio ya estaba registrado en tu PATH.';
 
       return {
         success: true,
-        message: `Universal shim created at ${SHIM_DIR}.\nTip: Ensure "${SHIM_DIR}" is in your PATH.`,
+        message: `Universal shim creado en ${SHIM_DIR}.${modifiedNote}\n💡 Si ejecutas 'claude' en una ventana ya abierta, puede requerir abrir una nueva terminal para recargar el PATH.`,
       };
     }
 
@@ -161,8 +198,26 @@ if %errorlevel% equ 0 (
           if (Object.keys(settings.env).length === 0) {
             delete settings.env;
           }
-          fs.writeFileSync(CLAUDE_SETTINGS_PATH, JSON.stringify(settings, null, 2), 'utf-8');
           modified = true;
+        }
+
+        // Clean SessionStart hooks
+        if (settings.hooks?.SessionStart) {
+          settings.hooks.SessionStart = settings.hooks.SessionStart.filter(
+            (entry: any) =>
+              !entry?.hooks?.some((h: any) => h.command?.includes('omniclaude server ensure-running'))
+          );
+          if (settings.hooks.SessionStart.length === 0) {
+            delete settings.hooks.SessionStart;
+          }
+          if (Object.keys(settings.hooks).length === 0) {
+            delete settings.hooks;
+          }
+          modified = true;
+        }
+
+        if (modified) {
+          fs.writeFileSync(CLAUDE_SETTINGS_PATH, JSON.stringify(settings, null, 2), 'utf-8');
         }
       } catch {}
     }
@@ -178,6 +233,9 @@ if %errorlevel% equ 0 (
       fs.unlinkSync(shimCmd);
       modified = true;
     }
+
+    // 3. Remove from PATH
+    PathManager.removeFromPath();
 
     saveConfig({ patched: false, patchMode: undefined });
 

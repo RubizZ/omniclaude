@@ -6,7 +6,7 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "bin": {
-    "omniclaude": "./bin/omniclaude.js"
+    "omniclaude": "bin/omniclaude.js"
   },
   "files": [
     "dist",
@@ -27,8 +27,16 @@
     "tui",
     "cli"
   ],
-  "author": "",
+  "author": "Rubén Hidalgo",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/RubizZ/omniclaude.git"
+  },
+  "bugs": {
+    "url": "https://github.com/RubizZ/omniclaude/issues"
+  },
+  "homepage": "https://github.com/RubizZ/omniclaude#readme",
   "dependencies": {
     "@clack/prompts": "^0.10.0",
     "commander": "^14.0.3",
