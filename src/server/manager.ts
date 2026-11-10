@@ -79,13 +79,15 @@ export class ServerManager {
 
     try {
       const isWin = process.platform === 'win32';
-      const cmd = isWin ? 'omniroute.cmd' : 'omniroute';
-      const args = ['serve', '--no-open', '--port', String(port)];
+      const cmd = isWin ? 'cmd.exe' : 'omniroute';
+      const args = isWin
+        ? ['/c', 'omniroute', 'serve', '--no-open', '--port', String(port)]
+        : ['serve', '--no-open', '--port', String(port)];
 
       const child = spawn(cmd, args, {
         detached: true,
         stdio: ['ignore', logFd, logFd],
-        shell: isWin,
+        windowsHide: true,
       });
 
       const serverPid = child.pid;
@@ -133,13 +135,17 @@ export class ServerManager {
 
     // Try CLI stop first
     try {
-      execSync('omniroute stop', { stdio: 'ignore' });
+      execSync('omniroute stop', { stdio: 'ignore', windowsHide: true });
     } catch {}
 
     // If serverPid was tracked, kill it
     if (state.serverPid && this.isPidAlive(state.serverPid)) {
       try {
-        process.kill(state.serverPid, 'SIGTERM');
+        if (process.platform === 'win32') {
+          execSync(`taskkill /F /T /PID ${state.serverPid}`, { stdio: 'ignore', windowsHide: true });
+        } else {
+          process.kill(state.serverPid, 'SIGTERM');
+        }
       } catch {}
     }
 
@@ -234,13 +240,13 @@ export class ServerManager {
 
     try {
       if (mode === 'service') {
-        execSync('omniroute autostart enable', { stdio: 'ignore' });
+        execSync('omniroute autostart enable', { stdio: 'ignore', windowsHide: true });
         // Also ensure it is running right now
         await this.ensureRunning();
         return { success: true, message: 'Always-On mode enabled. OmniRoute will start at system boot.' };
       } else {
         try {
-          execSync('omniroute autostart disable', { stdio: 'ignore' });
+          execSync('omniroute autostart disable', { stdio: 'ignore', windowsHide: true });
         } catch {}
         return { success: true, message: 'On-Demand mode enabled. OmniRoute runs only while Claude is open.' };
       }

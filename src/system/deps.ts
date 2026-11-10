@@ -16,7 +16,7 @@ export class DependencyManager {
     try {
       const isWin = process.platform === 'win32';
       const checkCmd = isWin ? `where ${command}` : `command -v ${command}`;
-      execSync(checkCmd, { stdio: 'ignore' });
+      execSync(checkCmd, { stdio: 'ignore', windowsHide: true });
       return true;
     } catch {
       return false;
@@ -30,6 +30,7 @@ export class DependencyManager {
         encoding: 'utf-8',
         stdio: ['ignore', 'pipe', 'ignore'],
         shell: isWin ? 'cmd.exe' : '/bin/sh',
+        windowsHide: true,
       });
       return out.trim().split('\n')[0] || null;
     } catch {
