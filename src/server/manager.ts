@@ -84,10 +84,16 @@ export class ServerManager {
         ? ['/c', 'omniroute', 'serve', '--no-open', '--port', String(port)]
         : ['serve', '--no-open', '--port', String(port)];
 
+      const exposeAliases = config.exposeDiscoveryAliases !== false ? 'true' : 'false';
+
       const child = spawn(cmd, args, {
         detached: true,
         stdio: ['ignore', logFd, logFd],
         windowsHide: true,
+        env: {
+          ...process.env,
+          EXPOSE_CC_DISCOVERY_ALIASES: exposeAliases,
+        },
       });
 
       const serverPid = child.pid;

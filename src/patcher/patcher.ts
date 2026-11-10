@@ -74,7 +74,7 @@ export class ClaudePatcher {
       settings.env.ANTHROPIC_MODEL = model;
       settings.env.CLAUDE_CODE_DISABLE_UNKNOWN_MODEL_WINDOW_ENFORCEMENT = '1';
       settings.env.CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY = '1';
-      settings.env.EXPOSE_CC_DISCOVERY_ALIASES = 'true';
+      settings.env.EXPOSE_CC_DISCOVERY_ALIASES = config.exposeDiscoveryAliases !== false ? 'true' : 'false';
 
       fs.writeFileSync(CLAUDE_SETTINGS_PATH, JSON.stringify(settings, null, 2), 'utf-8');
 

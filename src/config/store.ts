@@ -17,6 +17,7 @@ export const DEFAULT_CONFIG: OmniClaudeConfig = {
   lastModel: 'auto',
   lastProvider: 'auto',
   patched: false,
+  exposeDiscoveryAliases: true,
 };
 
 export function ensureConfigDir(): void {

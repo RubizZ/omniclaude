@@ -38,7 +38,7 @@ export class ClaudeLauncher {
       }
       env.CLAUDE_CODE_DISABLE_UNKNOWN_MODEL_WINDOW_ENFORCEMENT = '1';
       env.CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY = '1';
-      env.EXPOSE_CC_DISCOVERY_ALIASES = 'true';
+      env.EXPOSE_CC_DISCOVERY_ALIASES = config.exposeDiscoveryAliases !== false ? 'true' : 'false';
     }
 
     const claudeBin = DependencyManager.findClaudeExecutable();

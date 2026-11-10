@@ -1,10 +1,64 @@
 import { execSync } from 'node:child_process';
+import fs from 'node:fs';
+import path from 'node:path';
+import os from 'node:os';
 import open from 'open';
 import { loadConfig, saveConfig } from '../config/store.js';
 import { ServerManager } from '../server/manager.js';
 import { OmniModel, ProviderGroup } from '../types.js';
 
+export const OMNIROUTE_DIR = path.join(os.homedir(), '.omniroute');
+export const OMNIROUTE_ENV_PATH = path.join(OMNIROUTE_DIR, '.env');
+
 export class OmniRouteProvider {
+  /**
+   * Check if EXPOSE_CC_DISCOVERY_ALIASES is enabled in OmniRoute
+   */
+  static getDiscoveryAliases(): boolean {
+    const config = loadConfig();
+    if (config.exposeDiscoveryAliases !== undefined) {
+      return config.exposeDiscoveryAliases;
+    }
+
+    if (fs.existsSync(OMNIROUTE_ENV_PATH)) {
+      try {
+        const content = fs.readFileSync(OMNIROUTE_ENV_PATH, 'utf-8');
+        const match = content.match(/^EXPOSE_CC_DISCOVERY_ALIASES\s*=\s*(.*)$/m);
+        if (match) {
+          return match[1].trim().toLowerCase() === 'true';
+        }
+      } catch {}
+    }
+
+    return true; // default true
+  }
+
+  /**
+   * Enable or disable EXPOSE_CC_DISCOVERY_ALIASES in OmniRoute's .env file and config
+   */
+  static setDiscoveryAliases(enable: boolean): void {
+    saveConfig({ exposeDiscoveryAliases: enable });
+
+    try {
+      if (!fs.existsSync(OMNIROUTE_DIR)) {
+        fs.mkdirSync(OMNIROUTE_DIR, { recursive: true });
+      }
+
+      let content = '';
+      if (fs.existsSync(OMNIROUTE_ENV_PATH)) {
+        content = fs.readFileSync(OMNIROUTE_ENV_PATH, 'utf-8');
+      }
+
+      const val = enable ? 'true' : 'false';
+      if (/^EXPOSE_CC_DISCOVERY_ALIASES\s*=/m.test(content)) {
+        content = content.replace(/^EXPOSE_CC_DISCOVERY_ALIASES\s*=.*$/m, `EXPOSE_CC_DISCOVERY_ALIASES=${val}`);
+      } else {
+        content += (content.endsWith('\n') || content === '' ? '' : '\n') + `EXPOSE_CC_DISCOVERY_ALIASES=${val}\n`;
+      }
+
+      fs.writeFileSync(OMNIROUTE_ENV_PATH, content, 'utf-8');
+    } catch {}
+  }
   /**
    * Ensure a valid API Key exists for OmniRoute, registering a new one if missing
    */

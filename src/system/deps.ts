@@ -1,6 +1,8 @@
 import { execSync } from 'node:child_process';
 import * as p from '@clack/prompts';
 import pc from 'picocolors';
+import { loadConfig } from '../config/store.js';
+import { OmniRouteProvider } from '../providers/omniroute.js';
 
 export interface DepStatus {
   name: string;
@@ -147,6 +149,26 @@ export class DependencyManager {
         } else {
           spinner.stop(pc.red(`❌ Falló la instalación de ${dep.packageName}. Comprueba los permisos de npm.`));
         }
+      }
+    }
+
+    // Ask about EXPOSE_CC_DISCOVERY_ALIASES if not configured yet
+    const config = loadConfig();
+    if (config.exposeDiscoveryAliases === undefined) {
+      if (interactive) {
+        const enableAliases = await p.confirm({
+          message:
+            '¿Deseas activar los modelos de OmniRoute en Claude Code (EXPOSE_CC_DISCOVERY_ALIASES)?\n  (Permite que aparezcan todos los modelos de OmniRoute en el comando /model de Claude)',
+          initialValue: true,
+        });
+
+        const chosen = p.isCancel(enableAliases) ? true : Boolean(enableAliases);
+        OmniRouteProvider.setDiscoveryAliases(chosen);
+        if (chosen) {
+          p.log.success(pc.green('✅ Modelos de OmniRoute activados en Claude Code (/model).'));
+        }
+      } else {
+        OmniRouteProvider.setDiscoveryAliases(true);
       }
     }
 

@@ -11,6 +11,7 @@ export interface OmniClaudeConfig {
   lastProvider?: string;
   patched: boolean;
   patchMode?: PatchMode;
+  exposeDiscoveryAliases?: boolean;
 }
 
 export interface SessionInfo {

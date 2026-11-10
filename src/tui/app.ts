@@ -384,6 +384,11 @@ export class OmniClaudeTUI {
           label: '🔑 Modificar API Key de OmniRoute',
           hint: `Actual: ${config.omniApiKey ? config.omniApiKey.substring(0, 12) + '...' : '(ninguna)'}`,
         },
+        {
+          value: 'toggle_discovery',
+          label: `🔀 Exponer modelos en Claude Code: ${config.exposeDiscoveryAliases !== false ? pc.green('ACTIVADO') : pc.red('DESACTIVADO')}`,
+          hint: 'Configura EXPOSE_CC_DISCOVERY_ALIASES (visibles en comando /model)',
+        },
         { value: 'back', label: '⬅️ Volver' },
       ],
     });
@@ -402,6 +407,15 @@ export class OmniClaudeTUI {
         saveConfig({ omniApiKey: key.trim() });
         p.log.success('API Key guardada con éxito.');
       }
+    } else if (action === 'toggle_discovery') {
+      const current = config.exposeDiscoveryAliases !== false;
+      const newState = !current;
+      OmniRouteProvider.setDiscoveryAliases(newState);
+      p.log.success(
+        newState
+          ? pc.green('✅ Modelos de OmniRoute activados en el selector /model de Claude Code.')
+          : pc.yellow('❌ Modelos de OmniRoute desactivados en Claude Code.')
+      );
     }
   }
 
