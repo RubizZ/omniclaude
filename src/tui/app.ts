@@ -7,32 +7,32 @@ import { OmniRouteProvider } from '../providers/omniroute.js';
 import { ClaudePatcher } from '../patcher/patcher.js';
 import { ClaudeLauncher } from '../launcher.js';
 import { DependencyManager } from '../system/deps.js';
-import { BackendType, ServerMode, PatchMode, ProviderConnection } from '../types.js';
+import { BackendType, ServerMode, PatchMode } from '../types.js';
 
 export class OmniClaudeTUI {
   static async start(): Promise<void> {
-    console.clear();
-    p.intro(
-      pc.bgMagenta(pc.black(' OMNICLAUDE ')) +
-        ' ' +
-        pc.bold(pc.white('Claude Code + OmniRoute Singleton Manager'))
-    );
-
-    // Verify dependencies before proceeding
+    // Verify dependencies before starting main UI
     await DependencyManager.ensurePrerequisites(true);
 
     while (true) {
+      console.clear();
+      p.intro(
+        pc.bgMagenta(pc.black(' OMNICLAUDE ')) +
+          ' ' +
+          pc.bold(pc.white('Claude Code + OmniRoute Singleton Manager'))
+      );
+
       await this.renderStatusBar();
 
       const action = await p.select({
         message: 'What would you like to do?',
         maxItems: 8,
         options: [
-          { value: 'launch', label: '🚀 Launch Claude Code', hint: 'Select provider and model' },
-          { value: 'providers', label: '⚡ Manage Providers & Models', hint: 'Toggle logins & free providers' },
-          { value: 'server', label: '🔌 OmniRoute Server Manager', hint: 'Singleton lifecycle & Autostart' },
-          { value: 'patch', label: '🧩 Global Claude Patching', hint: 'Redirect "claude" to OmniRoute' },
-          { value: 'doctor', label: '🏥 System Doctor', hint: 'Check dependencies' },
+          { value: 'launch', label: '🚀 Launch Claude Code' },
+          { value: 'providers', label: '⚡ Manage Providers & Models' },
+          { value: 'server', label: '🔌 OmniRoute Server Manager' },
+          { value: 'patch', label: '🧩 Global Claude Patching' },
+          { value: 'doctor', label: '🏥 System Doctor' },
           { value: 'exit', label: '🚪 Exit' },
         ],
       });
@@ -75,29 +75,31 @@ export class OmniClaudeTUI {
 
     const modeBadge =
       config.serverMode === 'service'
-        ? pc.cyan('⚡ Always-On')
-        : pc.yellow(`⏱️ On-Demand (${state.activeSessions.length} active)`);
+        ? pc.cyan('[Always-On]')
+        : pc.yellow(`[On-Demand: ${state.activeSessions.length}]`);
 
     const patchBadge = patchStatus.isPatched
-      ? pc.magenta(`🧩 Patched [${patchStatus.mode}]`)
-      : pc.dim('⚪ Unpatched');
+      ? pc.magenta(`Patched (${patchStatus.mode})`)
+      : pc.dim('Unpatched');
 
     const freeBadge = freeEnabled
-      ? pc.blue('🎁 Free: ON')
-      : pc.dim('🚫 Free: OFF');
+      ? pc.blue('Free Models: ON')
+      : pc.dim('Free Models: OFF');
 
-    const lastModelBadge = config.lastModel ? pc.dim(`[Last: ${config.lastModel}]`) : '';
-
-    p.note(
-      `${serverBadge}  |  ${modeBadge}  |  ${patchBadge}  |  ${freeBadge}  ${lastModelBadge}`,
-      'System Status'
-    );
+    console.log(`  ${serverBadge} ${modeBadge}  |  ${patchBadge}  |  ${freeBadge}`);
+    if (config.lastModel && config.lastModel !== 'auto') {
+      console.log(pc.dim(`  Last Model: ${config.lastModel}`));
+    }
+    console.log();
   }
 
   /**
    * Flow to launch Claude Code with model and backend selection
    */
   static async handleLaunchFlow(): Promise<void> {
+    console.clear();
+    p.intro(pc.bgMagenta(pc.black(' OMNICLAUDE ')) + ' ' + pc.bold('Launch Claude Code'));
+
     const backend = (await p.select({
       message: 'Select backend:',
       maxItems: 8,
@@ -139,6 +141,7 @@ export class OmniClaudeTUI {
       spinner.stop(pc.green('Model catalog loaded successfully.'));
     } catch (e: any) {
       spinner.stop(pc.red(`Failed to connect to OmniRoute: ${e.message}`));
+      await p.confirm({ message: 'Press Enter to continue...' });
       return;
     }
 
@@ -150,8 +153,7 @@ export class OmniClaudeTUI {
     if (catalog.comboModels.length > 0) {
       options.push({
         value: 'combo',
-        label: '🔀 Combos',
-        hint: `${catalog.comboModels.length} configured pipelines`,
+        label: `🔀 Combos (${catalog.comboModels.length})`,
       });
     }
 
@@ -159,8 +161,7 @@ export class OmniClaudeTUI {
     for (const prov of catalog.paidProviders) {
       options.push({
         value: `prov:${prov.id}`,
-        label: `💰 ${prov.name}`,
-        hint: `${prov.models.length} models`,
+        label: `💰 ${prov.name} (${prov.models.length} models)`,
       });
     }
 
@@ -168,8 +169,7 @@ export class OmniClaudeTUI {
     for (const prov of catalog.freeProviders) {
       options.push({
         value: `prov:${prov.id}`,
-        label: `🎁 ${prov.name}`,
-        hint: `${prov.models.length} models`,
+        label: `🎁 ${prov.name} (${prov.models.length} models)`,
       });
     }
 
@@ -177,15 +177,13 @@ export class OmniClaudeTUI {
     for (const prov of catalog.otherProviders) {
       options.push({
         value: `prov:${prov.id}`,
-        label: `❓ ${prov.name}`,
-        hint: `${prov.models.length} models`,
+        label: `❓ ${prov.name} (${prov.models.length} models)`,
       });
     }
 
     options.push({
       value: '__manage__',
-      label: '⚙️ Manage Providers...',
-      hint: 'Configure logins and filters',
+      label: '⚙️ Manage Providers & Logins...',
     });
 
     options.push({ value: 'back', label: '⬅️ Back' });
@@ -241,6 +239,9 @@ export class OmniClaudeTUI {
    */
   static async handleProvidersFlow(): Promise<void> {
     while (true) {
+      console.clear();
+      p.intro(pc.bgMagenta(pc.black(' OMNICLAUDE ')) + ' ' + pc.bold('Provider & Model Manager'));
+
       const config = loadConfig();
       const connections = await OmniRouteProvider.listConfiguredConnections();
       const freeEnabled = await OmniRouteProvider.isFreeProvidersEnabled();
@@ -293,7 +294,7 @@ export class OmniClaudeTUI {
       options.push({ value: 'back', label: '⬅️ Back to Main Menu' });
 
       const action = await p.select({
-        message: 'Provider & Model Manager:',
+        message: 'Manage Providers & Models:',
         maxItems: 8,
         options,
       });
@@ -341,12 +342,15 @@ export class OmniClaudeTUI {
    * Flow to manage OmniRoute server (start, stop, autostart mode)
    */
   static async handleServerFlow(): Promise<void> {
+    console.clear();
+    p.intro(pc.bgMagenta(pc.black(' OMNICLAUDE ')) + ' ' + pc.bold('OmniRoute Server Management'));
+
     const config = loadConfig();
     const isRunning = await ServerManager.isPortListening(config.omniPort);
     const state = loadServerState();
 
     const action = await p.select({
-      message: 'OmniRoute Server Management:',
+      message: 'Server Operations:',
       maxItems: 8,
       options: [
         {
@@ -404,8 +408,10 @@ export class OmniClaudeTUI {
       if (fs.existsSync(LOG_PATH)) {
         const lines = fs.readFileSync(LOG_PATH, 'utf-8').split('\n').slice(-20).join('\n');
         p.note(lines || 'Log file is empty.', `Last lines of ${LOG_PATH}`);
+        await p.confirm({ message: 'Press Enter to continue...' });
       } else {
         p.log.warn('No log file created yet.');
+        await p.confirm({ message: 'Press Enter to continue...' });
       }
     }
   }
@@ -414,6 +420,9 @@ export class OmniClaudeTUI {
    * Flow to patch or unpatch Claude Code
    */
   static async handlePatchFlow(): Promise<void> {
+    console.clear();
+    p.intro(pc.bgMagenta(pc.black(' OMNICLAUDE ')) + ' ' + pc.bold('Global Claude Code Patching'));
+
     const status = ClaudePatcher.getStatus();
 
     if (status.isPatched) {
@@ -434,6 +443,7 @@ export class OmniClaudeTUI {
       if (choice === 'unpatch') {
         const res = await ClaudePatcher.unpatch();
         p.log.info(res.message);
+        await p.confirm({ message: 'Press Enter to continue...' });
         return;
       }
     }
@@ -460,12 +470,16 @@ export class OmniClaudeTUI {
 
     const res = await ClaudePatcher.patch(method);
     p.log.success(res.message);
+    await p.confirm({ message: 'Press Enter to continue...' });
   }
 
   /**
    * Flow to diagnose and repair dependencies
    */
   static async handleDoctorFlow(): Promise<void> {
+    console.clear();
+    p.intro(pc.bgMagenta(pc.black(' OMNICLAUDE ')) + ' ' + pc.bold('System Diagnostics (Doctor)'));
+
     const { nodeOk, nodeVer, deps } = DependencyManager.checkAll();
 
     const lines: string[] = [
@@ -479,7 +493,7 @@ export class OmniClaudeTUI {
       lines.push(`${dep.name} [${dep.command}]: ${status}`);
     }
 
-    p.note(lines.join('\n'), 'System Diagnostics (Doctor)');
+    p.note(lines.join('\n'), 'Diagnostics Report');
 
     const missing = deps.filter((d) => !d.installed);
     if (missing.length > 0) {
