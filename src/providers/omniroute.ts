@@ -2,6 +2,7 @@ import { execSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
+import crypto from 'node:crypto';
 import open from 'open';
 import { loadConfig, saveConfig } from '../config/store.js';
 import { ServerManager } from '../server/manager.js';
@@ -12,6 +13,59 @@ export const OMNIROUTE_DIR = path.join(os.homedir(), '.omniroute');
 export const OMNIROUTE_ENV_PATH = path.join(OMNIROUTE_DIR, '.env');
 
 export class OmniRouteProvider {
+  /**
+   * Ensure STORAGE_ENCRYPTION_KEY exists in ~/.omniroute/.env, creating or syncing it if missing
+   */
+  static ensureStorageEncryptionKey(): string {
+    const isWin = process.platform === 'win32';
+    const envPath = OMNIROUTE_ENV_PATH;
+
+    if (!fs.existsSync(OMNIROUTE_DIR)) {
+      fs.mkdirSync(OMNIROUTE_DIR, { recursive: true, mode: 0o700 });
+    }
+
+    let existingContent = '';
+    if (fs.existsSync(envPath)) {
+      existingContent = fs.readFileSync(envPath, 'utf-8');
+      const match = existingContent.match(/^STORAGE_ENCRYPTION_KEY\s*=\s*(.+)$/m);
+      if (match && match[1].trim()) {
+        return match[1].trim();
+      }
+    }
+
+    let keyToUse = '';
+
+    // If on Windows, check if WSL has an existing OmniRoute key we can sync!
+    if (isWin) {
+      try {
+        const wslOut = execSync('wsl -e bash -lc "grep ^STORAGE_ENCRYPTION_KEY ~/.omniroute/.env 2>/dev/null"', {
+          encoding: 'utf-8',
+          stdio: ['ignore', 'pipe', 'ignore'],
+          windowsHide: true,
+        });
+        const wslMatch = wslOut.match(/^STORAGE_ENCRYPTION_KEY\s*=\s*(.+)$/m);
+        if (wslMatch && wslMatch[1].trim()) {
+          keyToUse = wslMatch[1].trim();
+        }
+      } catch {}
+    }
+
+    // If still no key, generate a cryptographically strong 32-byte hex key
+    if (!keyToUse) {
+      keyToUse = crypto.randomBytes(32).toString('hex');
+    }
+
+    // Append or replace in ~/.omniroute/.env
+    if (/^STORAGE_ENCRYPTION_KEY\s*=/m.test(existingContent)) {
+      existingContent = existingContent.replace(/^STORAGE_ENCRYPTION_KEY\s*=.*$/m, `STORAGE_ENCRYPTION_KEY=${keyToUse}`);
+    } else {
+      existingContent = `STORAGE_ENCRYPTION_KEY=${keyToUse}\n` + existingContent;
+    }
+
+    fs.writeFileSync(envPath, existingContent, { mode: 0o600 });
+    return keyToUse;
+  }
+
   /**
    * Check if EXPOSE_CC_DISCOVERY_ALIASES is enabled in OmniRoute
    */

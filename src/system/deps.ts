@@ -174,6 +174,11 @@ export class DependencyManager {
           spinner.stop(pc.green(`✅ ${dep.name} se instaló correctamente.`));
           dep.installed = true;
           dep.version = this.getCommandVersion(dep.command) || undefined;
+
+          // If omniroute was just installed, ensure STORAGE_ENCRYPTION_KEY is immediately initialized
+          if (dep.packageName === 'omniroute') {
+            OmniRouteProvider.ensureStorageEncryptionKey();
+          }
         } else {
           spinner.stop(pc.red(`❌ Falló la instalación de ${dep.packageName}. Comprueba los permisos de npm.`));
         }

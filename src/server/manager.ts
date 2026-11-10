@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import net from 'node:net';
 import { loadConfig, loadServerState, saveServerState, saveConfig, LOG_PATH } from '../config/store.js';
 import { DependencyManager } from '../system/deps.js';
+import { OmniRouteProvider } from '../providers/omniroute.js';
 import { ServerMode } from '../types.js';
 
 export class ServerManager {
@@ -87,6 +88,7 @@ export class ServerManager {
         : ['serve', '--no-open', '--port', String(port)];
 
       const exposeAliases = config.exposeDiscoveryAliases !== false ? 'true' : 'false';
+      const storageKey = OmniRouteProvider.ensureStorageEncryptionKey();
 
       const child = spawn(cmd, args, {
         detached: true,
@@ -94,6 +96,7 @@ export class ServerManager {
         windowsHide: true,
         env: {
           ...process.env,
+          STORAGE_ENCRYPTION_KEY: storageKey,
           EXPOSE_CC_DISCOVERY_ALIASES: exposeAliases,
         },
       });
