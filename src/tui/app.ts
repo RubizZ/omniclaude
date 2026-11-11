@@ -448,6 +448,7 @@ export class OmniClaudeTUI {
       }
     }
 
+    const isWin = process.platform === 'win32';
     const method = (await p.select({
       message: 'Choose patching method:',
       maxItems: 8,
@@ -460,7 +461,9 @@ export class OmniClaudeTUI {
         {
           value: 'wrapper',
           label: '⚡ Smart PATH Wrapper (~/.omniclaude/bin/claude)',
-          hint: 'Auto-added to PATH, silently ensures OmniRoute is alive',
+          hint: isWin
+            ? '⚠️ Not recommended on Windows: PowerShell/CMD prefers claude.exe over .cmd shims'
+            : 'Auto-added to PATH, silently ensures OmniRoute is alive',
         },
         { value: 'back', label: '⬅️ Back' },
       ],

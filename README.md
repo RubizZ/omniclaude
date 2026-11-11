@@ -99,12 +99,14 @@ Injects configuration directly into `~/.claude/settings.json` and adds an offici
 ```bash
 omniclaude patch --mode settings
 ```
+> **Windows Users**: Always use this mode. On Windows, PowerShell and CMD prioritize existing `claude.exe` over `.cmd` wrapper scripts.
 
 ### Option 2: Smart PATH Wrapper Mode
 Creates an intelligent wrapper shim at `~/.omniclaude/bin/claude` that automatically adds itself to your permanent `PATH` (Windows Registry `HKCU\Environment\Path` and `.bashrc`/`.zshrc` on Linux/WSL):
 ```bash
 omniclaude patch --mode wrapper
 ```
+> ⚠️ **Note**: Best suited for Linux / macOS / WSL. On native Windows, wrapper shims (`claude.cmd`) may be bypassed by PowerShell when an official `claude.exe` exists in `PATH`. Use Settings Mode instead.
 
 ### Revert to Standard Claude Code
 ```bash

@@ -167,9 +167,14 @@ if %errorlevel% equ 0 (
         ? `\n✅ Automatically added to PATH in: ${pathResult.modifiedFiles.join(', ')}`
         : '\nℹ️ Directory was already in your PATH.';
 
+      const isWin = process.platform === 'win32';
+      const winWarning = isWin
+        ? '\n⚠️ Note for Windows: Native claude.exe takes precedence over .cmd wrappers in PowerShell/CMD due to PATHEXT and PATH resolution. Use "omniclaude patch --mode settings" if "claude" continues to launch unpatched in Windows shells.'
+        : '';
+
       return {
         success: true,
-        message: `Universal shim created at ${SHIM_DIR}.${modifiedNote}\n💡 Running 'claude' in an existing terminal may require opening a new terminal window to reload the PATH.`,
+        message: `Universal shim created at ${SHIM_DIR}.${modifiedNote}\n💡 Running 'claude' in an existing terminal may require opening a new terminal window to reload the PATH.${winWarning}`,
       };
     }
 
