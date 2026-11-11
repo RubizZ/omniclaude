@@ -1,6 +1,6 @@
 {
   "name": "omniclaude",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "description": "Cross-platform CLI & TUI manager for Claude Code and OmniRoute with singleton server lifecycle management and zero-friction patching",
   "type": "module",
   "main": "dist/index.js",

@@ -53,7 +53,6 @@ export class ClaudePatcher {
     const config = loadConfig();
     const port = config.omniPort;
     const apiKey = config.omniApiKey || 'unused';
-    const model = targetModel || config.lastModel || 'auto';
 
     if (mode === 'settings') {
       // 1. Ensure directory exists
@@ -74,7 +73,11 @@ export class ClaudePatcher {
       settings.env = settings.env || {};
       settings.env.ANTHROPIC_BASE_URL = `http://127.0.0.1:${port}`;
       settings.env.ANTHROPIC_AUTH_TOKEN = apiKey;
-      settings.env.ANTHROPIC_MODEL = model;
+      if (targetModel) {
+        settings.env.ANTHROPIC_MODEL = targetModel;
+      } else {
+        delete settings.env.ANTHROPIC_MODEL;
+      }
       settings.env.CLAUDE_CODE_DISABLE_UNKNOWN_MODEL_WINDOW_ENFORCEMENT = '1';
       settings.env.CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY = '1';
       settings.env.EXPOSE_CC_DISCOVERY_ALIASES = config.exposeDiscoveryAliases !== false ? 'true' : 'false';
@@ -108,15 +111,19 @@ export class ClaudePatcher {
       }
       await ServerManager.ensureRunning(port);
 
-      saveConfig({ patched: true, patchMode: 'settings', lastModel: model });
+      saveConfig({ patched: true, patchMode: 'settings', ...(targetModel ? { lastModel: targetModel } : {}) });
+      const modelNote = targetModel ? ` (Model: ${targetModel})` : '';
       return {
         success: true,
-        message: `Claude Code configured in ~/.claude/settings.json (Model: ${model}).${modeNote}\n🛡️ Official hook (SessionStart) added to ensure the server is always running when Claude opens.`,
+        message: `Claude Code configured in ~/.claude/settings.json${modelNote}.${modeNote}\n🛡️ Official hook (SessionStart) added to ensure the server is always running when Claude opens.`,
       };
     }
 
     if (mode === 'wrapper') {
       const realClaude = DependencyManager.findClaudeExecutable();
+
+      const modelExportSh = targetModel ? `export ANTHROPIC_MODEL="${targetModel}"\n` : '';
+      const modelSetCmd = targetModel ? `set ANTHROPIC_MODEL=${targetModel}\n` : '';
 
       // 1. Create bash shim for Linux/WSL/macOS
       const shimShPath = path.join(SHIM_DIR, 'claude');
@@ -126,8 +133,7 @@ export class ClaudePatcher {
 
 export ANTHROPIC_BASE_URL="http://127.0.0.1:${port}"
 export ANTHROPIC_AUTH_TOKEN="${apiKey}"
-export ANTHROPIC_MODEL="${model}"
-export CLAUDE_CODE_DISABLE_UNKNOWN_MODEL_WINDOW_ENFORCEMENT=1
+${modelExportSh}export CLAUDE_CODE_DISABLE_UNKNOWN_MODEL_WINDOW_ENFORCEMENT=1
 export CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY=1
 export EXPOSE_CC_DISCOVERY_ALIASES=true
 
@@ -144,8 +150,7 @@ exec "${realClaude}" "$@"
       const cmdScript = `@echo off
 set ANTHROPIC_BASE_URL=http://127.0.0.1:${port}
 set ANTHROPIC_AUTH_TOKEN=${apiKey}
-set ANTHROPIC_MODEL=${model}
-set CLAUDE_CODE_DISABLE_UNKNOWN_MODEL_WINDOW_ENFORCEMENT=1
+${modelSetCmd}set CLAUDE_CODE_DISABLE_UNKNOWN_MODEL_WINDOW_ENFORCEMENT=1
 set CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY=1
 set EXPOSE_CC_DISCOVERY_ALIASES=true
 
@@ -161,7 +166,7 @@ if %errorlevel% equ 0 (
       // 3. Automatically add SHIM_DIR to PATH
       const pathResult = PathManager.addToPath();
 
-      saveConfig({ patched: true, patchMode: 'wrapper', lastModel: model });
+      saveConfig({ patched: true, patchMode: 'wrapper', ...(targetModel ? { lastModel: targetModel } : {}) });
 
       const modifiedNote = pathResult.modifiedFiles.length > 0
         ? `\n✅ Automatically added to PATH in: ${pathResult.modifiedFiles.join(', ')}`
@@ -172,9 +177,10 @@ if %errorlevel% equ 0 (
         ? '\n⚠️ Note for Windows: Native claude.exe takes precedence over .cmd wrappers in PowerShell/CMD due to PATHEXT and PATH resolution. Use "omniclaude patch --mode settings" if "claude" continues to launch unpatched in Windows shells.'
         : '';
 
+      const modelNote = targetModel ? ` (Model: ${targetModel})` : '';
       return {
         success: true,
-        message: `Universal shim created at ${SHIM_DIR}.${modifiedNote}\n💡 Running 'claude' in an existing terminal may require opening a new terminal window to reload the PATH.${winWarning}`,
+        message: `Universal shim created at ${SHIM_DIR}${modelNote}.${modifiedNote}\n💡 Running 'claude' in an existing terminal may require opening a new terminal window to reload the PATH.${winWarning}`,
       };
     }
 

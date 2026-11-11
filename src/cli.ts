@@ -13,7 +13,7 @@ const program = new Command();
 program
   .name('omniclaude')
   .description('Cross-platform CLI & TUI manager for Claude Code and OmniRoute')
-  .version('1.0.0');
+  .version('1.1.2');
 
 // Default action: if no command passed, open TUI
 program.action(async () => {
